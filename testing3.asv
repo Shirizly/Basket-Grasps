@@ -1,6 +1,5 @@
 % %% Define the polygon
 % clear all
-clc
 PG = Polygon([1,0;2,0;2,3;-1,4;-2,3;-1,1;-0.5,1].',[0;1.5]);
 % PG = Polygon([-1,-1;2,-1;3,-3;3,3;1,1;0,2;-1,1;-2,3;0.2,3;-2,5;-3,1;-2,-4].',[0;0.5]);
 % PG = Polygon([-3,0;-1.5,-5;3,-4;3,4;-1.5,5].',[0;0]);
@@ -72,16 +71,16 @@ for i=1:length(Closed_list)
     if cur_node_type<4
         set(groot,'CurrentFigure',graphfig{1})
         hold on
-        graphMarkers{end+1} = plot(s_origin,theta_origin,'ok','markerSize',14,'lineWidth',3);
+        graphMarkersplot(s_origin,theta_origin,'ok','markerSize',14,'lineWidth',3)
         s_origin(2) =node_par(2);
         set(groot,'CurrentFigure',graphfig{2})
         hold on
-        graphMarkers{end+1} = plot(s_origin(2),theta_origin,'ok','markerSize',14,'lineWidth',3);
+        plot(s_origin(2),theta_origin,'ok','markerSize',14,'lineWidth',3)
     else
         finger = node_par(end);
         set(groot,'CurrentFigure',graphfig{finger})
         hold on
-        graphMarkers{end+1} = plot(s_origin,theta_origin,'ok','markerSize',14,'lineWidth',3);
+        plot(s_origin,theta_origin,'ok','markerSize',14,'lineWidth',3)
     end
     for j = 1:length(connect_ind)
         node_ind = index_list(connect_ind(j));
@@ -99,20 +98,20 @@ for i=1:length(Closed_list)
                 if any([1,3]==FingerMatrix(Closed_list(i),connect_ind(j)))
                     set(groot,'CurrentFigure',graphfig{1})
                     hold on
-                    graphMarkers{end+1} = plot([s(1),s_origin(1)],[theta,theta_origin],'r-','lineWidth',4);
-                    graphMarkers{end+1} = plot(s(1),theta,'or','markerSize',14);
+                    plot([s(1),s_origin(1)],[theta,theta_origin],'r-','lineWidth',4)
+                    plot(s(1),theta,'or','markerSize',14)
                 end
                 if any([2,3]==FingerMatrix(Closed_list(i),connect_ind(j)))
                     set(groot,'CurrentFigure',graphfig{2})
                     hold on
-                    graphMarkers{end+1} = plot([s(2),s_origin(2)],[theta,theta_origin],'r-','lineWidth',4);
-                    graphMarkers{end+1} = plot(s(2),theta,'or','markerSize',14);
+                    plot([s(2),s_origin(2)],[theta,theta_origin],'r-','lineWidth',4);
+                    plot(s(2),theta,'or','markerSize',14);
                 end
             else % current node is SS_node
                 set(groot,'CurrentFigure',graphfig{finger})
                 hold on
-                graphMarkers{end+1} = plot([s(finger),s_origin],[theta,theta_origin],'r-','lineWidth',4);
-                graphMarkers{end+1} = plot(s(finger),theta,'or','markerSize',14);
+                plot([s(finger),s_origin],[theta,theta_origin],'r-','lineWidth',4)
+                plot(s(finger),theta,'or','markerSize',14)
             end
         else % next node is SS_node
             next_finger = node_par(end);
@@ -122,14 +121,14 @@ for i=1:length(Closed_list)
             if length(s_origin)>1
                 s_origin_temp = s_origin(next_finger);
             end
-            graphMarkers{end+1} = plot([s,s_origin_temp],[theta,theta_origin],'r-','lineWidth',4);
-            graphMarkers{end+1} = plot(s,theta,'or','markerSize',14);
+            plot([s,s_origin_temp],[theta,theta_origin],'r-','lineWidth',4)
+            plot(s,theta,'or','markerSize',14)
         end
     end
 end
 hold off 
 for finger = 1:2
-% set(graphfig{finger},'Position',[0,41,1400,600])
+set(graphfig{finger},'Position',[0,41,1400,600])
 
 % saveas(graphfig{finger},['Polygon Escape Graph' num2str(finger) '.bmp'])
 end
