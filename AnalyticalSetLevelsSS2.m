@@ -40,7 +40,7 @@ for c=[h,-h]
     plot(send,thetatemp,'+k','markerSize',15,'lineWidth',8)
 end
 
-
+plot([0,1],[-0.67,-0.67])
 smin = find(sx == min(abs(sx)));
 plot(sx(smin),theta(smin),'+r','markerSize',15,'lineWidth',8)
 plot(sx(smin),theta(smin)-pi(),'+g','markerSize',15,'lineWidth',8)

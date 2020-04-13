@@ -31,4 +31,48 @@ for i = 1:size(ss_virtual,1)
     ss_virtual(i,2) = dist(2);
 end
 ss_saddle = [ss_saddle;ss_virtual];
+%% duplicate nodes that are on the s-edges of the theta-s plane:
+sEnd = PG.S(PG.VL(end));
+ss_min_dup = zeros(size(ss_min)); 
+count = 0;
+for i=1:length(ss_min)
+    if ss_min(i,1) == 0
+        count = count+1;
+        ss_min_dup(count,:) = [sEnd,ss_min(i,2:end)];
+    end
+    if ss_min(i,1) == sEnd
+        count = count+1;
+        ss_min_dup(count,:) = [0,ss_min(i,2:end)];
+    end
+end
+ss_min = [ss_min;ss_min_dup(1:count,:)];
+
+ss_max_dup = zeros(size(ss_max)); 
+count = 0;
+for i=1:length(ss_max)
+    if ss_max(i,1) == 0
+        count = count+1;
+        ss_max_dup(count,:) = [sEnd,ss_max(i,2:end)];
+    end
+    if ss_max(i,1) == sEnd
+        count = count+1;
+        ss_max_dup(count,:) = [0,ss_max(i,2:end)];
+    end
+end
+ss_max = [ss_max;ss_max_dup(1:count,:)];
+
+ss_saddle_dup = zeros(size(ss_saddle)); 
+count = 0;
+for i=1:length(ss_saddle)
+    if ss_saddle(i,1) == 0
+        count = count+1;
+        ss_saddle_dup(count,:) = [sEnd,ss_saddle(i,2:end)];
+    end
+    if ss_saddle(i,1) == sEnd
+        count = count+1;
+        ss_saddle_dup(count,:) = [0,ss_saddle(i,2:end)];
+    end
+end
+ss_saddle = [ss_saddle;ss_saddle_dup];
+
 end

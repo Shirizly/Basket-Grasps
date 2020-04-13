@@ -48,4 +48,4 @@ Round_object = round(object,1)
 % figure
 % plot(Round_object(1,:),Round_object(2,:))
 %%
-% save('object.mat','object','com')
+save('object.mat','object','com')

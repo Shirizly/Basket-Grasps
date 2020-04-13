@@ -6,7 +6,6 @@ function [OpenList,ClosedList,A,index_list,type_list,path_list,FingerMatrix] = G
 % start_node = [node_type,Node_index]
 % f1 and f2 are spatial locations of the fingers
 % graphfig contains handles for the figures of the s-theta planes
-
 % Outputs:
 % OpenList and ClosedList are lists of nodes, closed (checked) and open,
 % each node defined by their index in index_list and type_list(same number)
@@ -15,17 +14,18 @@ function [OpenList,ClosedList,A,index_list,type_list,path_list,FingerMatrix] = G
 % type_list contains the type of each node
 % index_list contains the index of each node in the type's matrix (inside
 % nodes)
-
 % Further clarifications:
 % DS_nodes are [s1,s2,h,theta,index of contour segment, index inside
 % contour segment].
-% SS_nodes are [s,h,theta], with SS_min being [s,h,theta,type], type = 1 if
-% node is hook, 0 if not.
+% SS_nodes are [s,h,theta,finger], with SS_min being [s,h,theta,type,finger], type = 1 if
+% node is hook, 0 if not. finger is the relevant finger for the node
 %     labels = {'ds_max','ds_min','ds_virtual','ss_max','ss_min','ss_saddle'}
 %some programming and debugging variables:
+
 debug = 1;
 labels = [];
 epsi = 1E-5;
+
 %% Generate an array of all graph nodes:
 % each node is represented by a number, from 1 to #nodes, which serves as
 % its index in index_list and type_list (and h_list).
@@ -48,6 +48,7 @@ for i = 1:numel(nodes)
 end
 
 %% Finding potential neighbors (all nodes within the neighboring half-strips):
+sEnd = PG.S(PG.VL(end));
 stripNum = length(PG.VL)-1;
 maxnb = size(index_list,2);
 path_list = zeros(size(index_list,2),1);
@@ -108,7 +109,7 @@ while ~escape
                     stripIndV(2) = stripNum;
                 end
             end
-            currentTheta = node_par(4);
+            currentTheta = node_par(3);
             for stripInd = stripIndV
                 halfIndDelta = findHalfInd(PG,stripInd,currentTheta);
                 halfInd = sign(halfIndDelta);
@@ -127,8 +128,9 @@ while ~escape
             delete(labels{i});
         end
     end
-    if debug == 1
-        labels = drawpossibleneighbors(PG,nodes,index_list,type_list,cur_node,possible_neighbors,fingerIndex,graphfig);
+    if debug==1
+        writenum = 0;
+        labels = drawpossibleneighbors(PG,nodes,index_list,type_list,cur_node,possible_neighbors,fingerIndex,graphfig,writenum);
     end
     %% identify neighbors among potential neighbors by constructing a legal path:
     neighbors = []; fingerIndexNeighbors = [];
@@ -145,6 +147,51 @@ while ~escape
             fingerIndexNeighbors(end+1) = fingerIndex(i);
         end
     end
+    
+    
+    
+    %% add neighbors for nodes on the s-edges of the graph (the duplicates from the other end)
+    dupeInd = [];
+    if cur_type<=3 % DS_nodes
+    if node_par(1)==0
+        s = sEnd;
+        theta = currentTheta;
+        finger = 1;
+        dupeInd = findDSNodeSTheta(nodes{cur_type},s,theta,finger);
+    end
+    if node_par(1)==sEnd
+        s = 0;
+        theta = currentTheta;
+        finger = 1;
+        dupeInd = findDSNodeSTheta(nodes{cur_type},s,theta,finger);
+    end
+    if node_par(2)==0
+        s = sEnd;
+        theta = currentTheta;
+        finger = 2;
+        dupeInd = [dupeInd,findDSNodeSTheta(nodes{cur_type},s,theta,finger)];
+    end
+    if node_par(2)==sEnd
+        s = 0;
+        theta = currentTheta;
+        finger = 2;
+        dupeInd = [dupeInd,findDSNodeSTheta(nodes{cur_type},s,theta,finger)];
+    end
+    else % SS_nodes
+    if node_par(1)==0
+        s = sEnd;
+        theta = currentTheta;
+        finger = node_par(end);
+        dupeInd = findSSNodeSTheta(nodes{cur_type},s,theta,finger);
+    end
+    if node_par(1)==sEnd
+        s = 0;
+        theta = currentTheta;
+        finger = node_par(end);
+        dupeInd = findSSNodeSTheta(nodes{cur_type},s,theta,finger);
+    end
+    end
+    neighbors = [neighbors,dupeInd];
     %% add edges to the graph:
     A(cur_node,neighbors) = true;
     A(neighbors,cur_node) = true; % add connection on both directions
@@ -161,7 +208,7 @@ while ~escape
     end
     %% prepare the data structures for the algorithm continuation:
     % Add the neighbors of the current node to the open list:
-    OpenList=union(OpenList,setdiff(find(A(cur_node,:)).',[OpenList;ClosedList]));
+    OpenList=union(OpenList,setdiff(neighbors.',[OpenList;ClosedList]));
     
     % Remove current node from open list:
     OpenList=setdiff(OpenList,cur_node);
@@ -169,9 +216,18 @@ while ~escape
     % Add the current node to the end of the closed list:
     ClosedList=[ClosedList;cur_node];
     
+    if debug == 1
+        if ~isempty(labels)
+            for i = 1:numel(labels)
+                delete(labels{i});
+            end
+        end
+        writenum = 0;
+        labels = drawpossibleneighbors(PG,nodes,index_list,type_list,cur_node,neighbors,fingerIndexNeighbors,graphfig,writenum);
+    end
     %% Find the next node with smallest height and define it as the new current node:
     [~,min_ind] = min(h_list(OpenList));
-    cur_node=OpenList(min_ind);
+    cur_node = OpenList(min_ind);
     cur_type = type_list(cur_node);
     node_par = nodes{cur_type}(index_list(cur_node),:);
     escape = escape_check(PG,node_par,cur_type);
@@ -199,12 +255,13 @@ end
 function possible_neighbors = SearchHalfStrip(PG,nodes,stripInd,halfInd,type_index_list,finger)
 %% preprocessing of the inputs, preparing the ranges for the search
 possible_neighbors = [];
+epsi = 1E-5;
 sMin = PG.S(PG.VL(stripInd));
 sMax = PG.S(PG.VL(stripInd+1));
 normal = PG.normal(:,stripInd);
-thetaSaddle = pi()/2-atan2(normal(2),normal(1)); %angle of the higher saddle line
+thetaSaddle = wrapToPi(pi()/2-atan2(normal(2),normal(1))); %angle of the higher saddle line
 thetaNext = thetaSaddle+halfInd*pi();
-thetaNextLimited = max(min(thetaNext,pi()),-pi());
+thetaNextLimited = max(min(thetaNext,pi()),-pi()); % take either the theta+-pi or the angle limit
 thetaRange1 = sort([thetaSaddle, thetaNextLimited]);
 thetaRange2 = [-2*pi(),-2*pi()];
 if thetaSaddle*halfInd>0
@@ -214,8 +271,8 @@ end
 %% checking DS nodes
 for i = 1:3
     sCond = nodes{i}(:,finger)>=sMin & nodes{i}(:,finger)<=sMax;  %the nodes are in the strip
-    thetaCond1 = (nodes{i}(:,4)>=thetaRange1(1) & nodes{i}(:,4)<=thetaRange1(2)); %the nodes are in the first part of the right theta-range
-    thetaCond2 = (nodes{i}(:,4)>=thetaRange2(1) & nodes{i}(:,4)<=thetaRange2(2)); % the nodes are in the second part of the right theta-range
+    thetaCond1 = ((nodes{i}(:,4)-thetaRange1(1))>=-epsi & (nodes{i}(:,4)-thetaRange1(2))<=epsi); %the nodes are in the first part of the right theta-range
+    thetaCond2 = ((nodes{i}(:,4)-thetaRange2(1))>=-epsi & (nodes{i}(:,4)-thetaRange2(2))<=epsi); % the nodes are in the second part of the right theta-range    thetaCond = thetaCond1 | thetaCond2; %the nodes are in the right theta-range
     thetaCond = thetaCond1 | thetaCond2; %the nodes are in the right theta-range
     pos = find(sCond & thetaCond); % indexes of nodes that are in the right half-strip
     pos_index = type_index_list(i)-1+pos;
@@ -225,8 +282,8 @@ end
 for i = 4:6
     fingerCond = nodes{i}(:,end)==finger; % these are nodes on the right s-theta plane
     sCond = nodes{i}(:,1)>=sMin & nodes{i}(:,1)<=sMax;  %the nodes are in the strip
-    thetaCond1 = (nodes{i}(:,3)>=thetaRange1(1) & nodes{i}(:,3)<=thetaRange1(2)); %the nodes are in the first part of the right theta-range
-    thetaCond2 = (nodes{i}(:,3)>=thetaRange2(1) & nodes{i}(:,3)<=thetaRange2(2)); % the nodes are in the second part of the right theta-range
+    thetaCond1 = ((nodes{i}(:,3)-thetaRange1(1))>=-epsi & (nodes{i}(:,3)-thetaRange1(2))<=epsi); %the nodes are in the first part of the right theta-range
+    thetaCond2 = ((nodes{i}(:,3)-thetaRange2(1))>=-epsi & (nodes{i}(:,3)-thetaRange2(2))<=epsi); % the nodes are in the second part of the right theta-range
     thetaCond = thetaCond1 | thetaCond2; %the nodes are in the right theta-range
     pos = find(sCond & thetaCond & fingerCond); % indexes of nodes that are in the right half-strip
     pos_index = type_index_list(i)-1+pos;
@@ -234,6 +291,7 @@ for i = 4:6
 end
 end
 
+%% building edges
 function connect = BuildEdge(PG,nodes,f1,f2,cur_node,next_node,type_list,index_list,cont,finger)
 connect = false;
 %% define A and B as the top and bottom nodes
@@ -270,42 +328,50 @@ else
     requiredDirList = genReqDirList(deltaTheta,deltaS);
     dirList = intersect(requiredDirList,possibleDirList);
     if isempty(dirList)
-        return
+        if A(end)==3 && B(end)<=3 % if A is DS virtual and B is a DS node, they may still be neighbors
+            flag_dsm = true;
+        else
+            return
+        end
     end
-    if length(dirList)>1
-        dirList = dirList(1);
-    end
+    
     %% perform the checks
-    checkRot = false; checkTrans = false;
-    if any([1,3]==dirList)
-        [checkTrans,intercept] = check_translation(PG,f1,f2,A,B);
-        Atemp = A;
-        Atemp(1) = B(1); % "moving" Atemp to the corner of the L movement
-        if checkTrans
-            [checkRot,intercept] = check_rotation(PG,f1,f2,Atemp,B);
+    if ~isempty(dirList)
+        if length(dirList)>1
+            dirList = dirList(1);
         end
-    else
-        [checkRot,intercept] = check_rotation(PG,f1,f2,A,B);
-        Atemp = A;
-        Atemp(3) = B(3); % "moving" Atemp to the corner of the L movement
-        if checkRot
-            [checkTrans,intercept] = check_translation(PG,f1,f2,Atemp,B);
+        checkRot = false; checkTrans = false;
+        if any([1,3]==dirList)
+            [checkTrans,intercept] = check_translation(PG,f1,f2,A,B);
+            Atemp = A;
+            Atemp(1) = B(1); % "moving" Atemp to the corner of the L movement
+            if checkTrans
+                [checkRot,intercept] = check_rotation(PG,f1,f2,Atemp,B);
+            end
+        else
+            [checkRot,intercept] = check_rotation(PG,f1,f2,A,B);
+            Atemp = A;
+            Atemp(3) = B(3); % "moving" Atemp to the corner of the L movement
+            if checkRot
+                [checkTrans,intercept] = check_translation(PG,f1,f2,Atemp,B);
+            end
         end
-    end
-    if checkRot&&checkTrans
-        connect = true;
-        return
+        if checkRot&&checkTrans
+            connect = true;
+            return
+        end
     end
 end
-%% If one of the checks return false, or A is a DS_max, and if B is DS, check if it is the nearest DS node to the intercept point
+%% If one of the checks return false, or A is a DS_max (or if A is DS_virtual with no , and if B is DS, check if it is the nearest DS node to the intercept point
 % first, define the intercept point:
 if flag_dsm %the intercept is node A
     intercept = A;
 else % find the segment and index on the contour
-    intercept = findOnCont(intercept,cont,finger);
-end
-if length(intercept)<7
-    disp('error')
+    epsi = 1E-5;
+    while length(intercept)<7 % in case the distance to the nearest contour data point is too large
+        intercept = findOnCont(intercept,cont,finger,epsi);
+        epsi = epsi*10;
+    end  
 end
 connect = checkContNeighbor(nodes,intercept,B);
 end
@@ -314,6 +380,7 @@ function possibleDirList = genPosDirList(PG,A)
 % function finds cardinal directions that are height-decreasing and allowed.
 % at this point nodes have parameters: 4(SS not min),5(SS_min),6(DS)
 possibleDirList = [];
+epsi = 1E-5;
 %% First, find height decreasing directions in the relevant s-theta plane
 edgeNum = PG.get('edgeNum',A(1));
 tangent = PG.tangent(:,edgeNum);
@@ -328,33 +395,33 @@ if any(PG.S(PG.VL)==A(1)) % if A (first contact) is on a vertex - add the tangen
     tangent2 = PG.tangent(:,edgeNum-1);
     tangent2 = R*tangent2;
 end
-for i=1:4 %go over the directions:
-    if i==1 %for s-positive parallel direction (translation):
-        if tangent(2)>=0 %edge pointing upwards, moving along it in the positive direction decreases com height
-            possibleDirList = [possibleDirList,i];
+for m=1:4 %go over the directions:
+    if m==1 %for s-positive parallel direction (translation):
+        if tangent(2)>=-epsi %edge pointing upwards, moving along it in the positive direction decreases com height
+            possibleDirList = [possibleDirList,m];
         end
     end
-    if i==3 %for s-negative parallel direction (translation):
+    if m==3 %for s-negative parallel direction (translation):
         if isempty(tangent2) % if the node isn't on a vertex - use the same tangent as (i==1)
-            if tangent(2)<=0 %edge pointing downwards, moving along it in the negative direction decreases com height
-                possibleDirList = [possibleDirList,i];
+            if tangent(2)<=epsi %edge pointing downwards, moving along it in the negative direction decreases com height
+                possibleDirList = [possibleDirList,m];
             end
         else
-            if tangent2(2)<=0 %edge pointing downwards, moving along it in the negative direction decreases com height
-                possibleDirList = [possibleDirList,i];
+            if tangent2(2)<=epsi %edge pointing downwards, moving along it in the negative direction decreases com height
+                possibleDirList = [possibleDirList,m];
             end
         end
     end
-    if any([2,4]==i) %for theta parallel directions (rotation):
+    if any([2,4]==m) %for theta parallel directions (rotation):
         rCOM = R*(PG.com-PG.get('1Pos',A(1)));
-        rotDir = (3-i); %negative and positive according to right-hand rule;
-        if rotDir*rCOM(1)<0 || (rotDir*rCOM(1)==0 && rCOM(2)>=0) %rotating the object decreases com height,
+        rotDir = (3-m); %negative and positive according to right-hand rule;
+        if rotDir*rCOM(1)<0 || (abs(rotDir*rCOM(1))<=epsi && rCOM(2)>=-epsi) %rotating the object decreases com height,
             % first condition is a reduction of rCOM cross rotDir(as
             % vector), taking only the vertical direction of the
             % instantaneous movement of com.
             % second condition to diff. upper equilibrium (where both
             % directions are h-dec) from lower (where neither are)
-            possibleDirList = [possibleDirList,i];
+            possibleDirList = [possibleDirList,m];
         end
     end
 end
@@ -367,7 +434,7 @@ switch length(A)
         edgeNum2 = PG.get('edgeNum',A(6));
         normal = PG.normal(:,edgeNum2);
         
-        
+        J = [0 -1;1 0]; % rotation matrix for 90 degrees (CCW)
         normal = R*normal;
         normal2 = [];
         if any(PG.S(PG.VL)==A(6)) % if A (second contact) is on a vertex - add the tangent of the previous edge
@@ -376,47 +443,86 @@ switch length(A)
             end
             normal2 = PG.normal(:,edgeNum2-1);
             normal2 = R*normal2;
+            isConcave = ((-J*normal).'*normal2)<0; %checks if the vertex is concave
         end
         remove = [];
-        for i = 1:length(possibleDirList) % go over the height decreasing directions:
-            dir = possibleDirList(i);
-            % translation directions:
-            if dir==1 && normal.'*tangent>0 % this is condition to remove, since the movement direction is -tangent
-                remove = [remove,i];
-            else
-                if dir==1 && ~isempty(normal2) % take into account the limit imposed by the second edge
-                    if normal2.'*tangent>0
-                        remove = [remove,i];
-                    end
+        for m = 1:length(possibleDirList) % go over the height decreasing directions:
+            dir = possibleDirList(m);
+            if isempty(normal2)
+                % translation directions:
+                if dir==1 && normal.'*tangent>epsi % this is condition to remove, since the movement direction is -tangent
+                    remove = [remove,m];
                 end
-            end
-            if dir==3 && (normal.'*tangent<0 && isempty(tangent2))% here the movement direction is tangent
-                remove = [remove,i];
-            else
-                if dir==3 && ~isempty(normal2) % take into account the limit imposed by the second edge
-                    if normal2.'*tangent<0
-                        remove = [remove,i];
+                if isempty(tangent2) % if the first contact is not on a vertex
+                    if dir==3 && normal.'*tangent<-epsi % here the movement direction is tangent
+                        remove = [remove,m];
                     end
-                end
-            end
-            if ~isempty(tangent2) % the movement is tangent to the previous edge
-                if dir==3 && (normal.'*tangent2<0) %the normal allows it
-                    remove = [remove,i];
                 else
-                    if dir==3 && ~isempty(normal2) % take into account the limit imposed by the second edge
-                        if normal2.'*tangent2<0
-                            remove = [remove,i];
+                    if dir==3 && normal.'*tangent2<-epsi % here the movement direction is tangent
+                        remove = [remove,m];
+                    end
+                end
+
+                if any([2,4]==dir) && ((3-dir)*J*fRel).'*normal<-epsi
+                    remove = [remove,m];
+                end
+                
+            else
+                if isConcave
+                    if dir==1 && normal.'*tangent>epsi % this is condition to remove, since the movement direction is -tangent
+                        remove = [remove,m];
+                    else
+                        if dir==1 % take into account the limit imposed by the second edge
+                            if normal2.'*tangent>epsi
+                                remove = [remove,m];
+                            end
                         end
                     end
-                end
-            end
-            J = [0 -1;1 0];
-            if any([2,4]==dir) && ((3-dir)*J*fRel).'*normal<0
-                remove = [remove,i];
-            else
-                if any([2,4]==dir) && ~isempty(normal2) % take into account the limit imposed by the second edge
-                    if ((3-dir)*J*fRel).'*normal2<0
-                        remove = [remove,i];
+                    if isempty(tangent2) % if the first contact is not on a vertex
+                        if dir==3 && (normal.'*tangent<-epsi) %the normal allows it
+                            remove = [remove,m];
+                        else
+                            if dir==3 && normal2.'*tangent<-epsi % take into account the limit imposed by the second edge
+                                remove = [remove,m];
+                            end
+                        end
+                    else
+                        if dir==3 && (normal.'*tangent2<-epsi) %the normal allows it
+                            remove = [remove,m];
+                        else
+                            if dir==3 && normal2.'*tangent2<-epsi % take into account the limit imposed by the second edge
+                                remove = [remove,m];
+                            end
+                        end
+                    end
+                    
+                    if any([2,4]==dir) && ((3-dir)*J*fRel).'*normal<-epsi
+                        remove = [remove,m];
+                    else
+                        if any([2,4]==dir) % take into account the limit imposed by the second edge
+                            if ((3-dir)*J*fRel).'*normal2<-epsi
+                                remove = [remove,m];
+                            end
+                        end
+                    end
+                else % not concave
+                    
+                    if (dir==1 && normal.'*tangent>epsi) && normal2.'*tangent>epsi % this is condition to remove, since the movement direction is -tangent
+                        remove = [remove,m];
+                    end
+                    
+                    if isempty(tangent2) % if the first contact is not on a vertex
+                        if (dir==3 && normal.'*tangent<-epsi) && normal2.'*tangent<-epsi % here the movement direction is tangent
+                            remove = [remove,m];
+                        end
+                    else
+                        if (dir==3 && normal.'*tangent2<-epsi) && normal2.'*tangent2<-epsi % here the movement direction is tangent
+                            remove = [remove,m];
+                        end
+                    end
+                    
+                    if any([2,4]==dir) && (((3-dir)*J*fRel).'*normal<-epsi) && ((3-dir)*J*fRel).'*normal2<-epsi
+                        remove = [remove,m];
                     end
                 end
             end
@@ -455,16 +561,20 @@ end
 node_par(end+1) = type; % add the type at the end
 end
 
-function intercept = findOnCont(intercept,cont,finger)
-epsi = 1E-4;
-for i =1:numel(cont)
-    seg = cont{i};
+function intercept = findOnCont(intercept,cont,finger,epsi)
+% epsi = 1E-4;
+if epsi>1E-2
+    disp('suspicious')
+end
+for m =1:numel(cont)
+    seg = cont{m};
     delta = seg([finger,4],:)-repmat(intercept.',1,size(seg,2));
     delta2 = delta.*delta;
     dist = delta2(1,:)+delta2(2,:);
+    min(dist)
     if min(dist)<epsi
         index = find(dist==min(dist),1,'first');
-        temp = [seg(1:4,index).',i,index];
+        temp = [seg(1:4,index).',m,index];
         intercept = [temp(finger),temp(3:6),temp(3-finger),7];
         return
     end
@@ -481,8 +591,8 @@ if cur_seg==next_seg
     contourind = [intercept(end-2),B(end-2)];
     maxind = max(contourind);
     minind = min(contourind);
-    for i = 1:3
-        pos_between = nodes{i}(:,5:6);
+    for m = 1:3
+        pos_between = nodes{m}(:,5:6);
         pos_between(pos_between(:,1)~=cur_seg,:)=[];
         in_between = find(pos_between(:,2)<maxind & pos_between(:,2)>minind); %#ok<*EFIND>
         if ~isempty(in_between)
@@ -494,8 +604,9 @@ end
 end
 
 function [connect,intercept] = check_rotation(PG,f1,f2,A,B)
-connect = true;
+connect1 = true;
 intercept = [];
+interceptv = [];
 delta_theta = wrapToPi(B(3)-A(3));
 if delta_theta==0
     return
@@ -508,50 +619,62 @@ tangent = PG.tangent;
 f2_rel = f2-f1;
 hand_theta = atan2(f2_rel(2),f2_rel(1));
 sigma = norm(f2_rel);
-for i=1:size(PG.vertex,2)
+for m=1:size(PG.vertex,2)
     % first find the point on the edge i that will intercept f2
-    v1 = vertex(:,i);
-    t1 = tangent(:,i);
+    v1 = vertex(:,m);
+    t1 = tangent(:,m);
     vertexTof1O = v1-f1O;
     % construct the polynom in alpha  - the relative distance on the
     % edge from the vertex to the point
     a = norm(t1)^2;
     b = 2*t1.'*vertexTof1O;
     c = norm(vertexTof1O)^2-sigma^2;
+    alphav = 0;
     if b==0
-        alpha = sqrt(-c/a);
+        alphav = sqrt(-c/a);
     else
-        alpha = (-b+sign(b)*sqrt(b^2-4*a*c))/(2*a); %take the option that comes closer to v1
-        % if the closest point on the edge to the axle falls inside the
-        % edge (-1<b<0), both intersections need to be checked.
-        if (b<0 && b>-1) && (alpha<0 || alpha>=1)
-            % if the automatic choice doesn't fit, try the other.
-            alpha = (-b+sqrt(b^2-4*a*c))/(2*a);
-        end
+        alphav(1) = (-b+sqrt(b^2-4*a*c))/(2*a); 
+        alphav(2) = (-b-sqrt(b^2-4*a*c))/(2*a);
     end
-    if alpha>=0 && alpha<1 && isreal(alpha) % if the point is inside the edge
-        int_point=v1+alpha*t1;
-        rel_int_point = int_point-f1O;
-        int_theta = atan2(rel_int_point(2),rel_int_point(1)); % angle of the intercept point relative to the inter-finger angle
-        int_theta = wrapToPi(hand_theta-(int_theta+cur_theta)); % angle of the intercept relative to cur_theta
-        if int_theta*delta_theta>0 && abs(int_theta)<abs(delta_theta) % if the rotation would intercept the edge before completion
-            if abs(delta_theta-pi())<1E-8||abs(delta_theta+pi())<1E-8 % if we're connecting nodes on the parallel equi-height line (the one representing horizontal orientation of the edge), than both half-strip/directions need to be checked
-                [connect,intercept] = check_rotation_Exactly_PI(PG,f1,f2,A,B);
-                return
-            else
-                int_theta = wrapToPi(int_theta+cur_theta);
-                intercept = [cur_s,int_theta];
-                connect = false;
-                return
+    for i = 1:length(alphav)
+        alpha = alphav(i);
+        if alpha>=0 && alpha<1 && isreal(alpha) % if the point is inside the edge
+            int_point=v1+alpha*t1;
+            rel_int_point = int_point-f1O;
+            int_theta = atan2(rel_int_point(2),rel_int_point(1)); % angle of the intercept point relative to the inter-finger angle
+            int_theta = wrapToPi(hand_theta-(int_theta+cur_theta)); % angle of the intercept relative to cur_theta
+            if int_theta*delta_theta>0 && (abs(int_theta)-abs(delta_theta)<-1E-5) % if the rotation would intercept the edge before completion
+                    interceptv(end+1,:) = [cur_s,int_theta];
+                    connect1 = false;
             end
         end
     end
+end
+if ~connect1
+    mintercept = min(abs(interceptv(:,2))); % minimum delta-theta to intercept
+    interceptInd = find(abs(interceptv(:,2))==mintercept,1,'first'); % index of first edge to intercept
+    intercept = interceptv(interceptInd,:); %#ok<*FNDSB>
+    if size(intercept,1)>1
+        disp('error');
+    end
+    intercept(2) = wrapToPi(intercept(2)+cur_theta);
+end
+connect2 = false;
+if abs(delta_theta-pi())<1E-8||abs(delta_theta+pi())<1E-8 % if we're connecting nodes on the parallel equi-height line (the one representing horizontal orientation of the edge), than both half-strip/directions need to be checked
+    [connect2,~] = check_rotation_Exactly_PI(PG,f1,f2,A,B);
+end
+if connect1||connect2
+    connect = true;
+    intercept = [];
+else
+    connect = false;
 end
 end
 
 function [connect,intercept] = check_rotation_Exactly_PI(PG,f1,f2,A,B)
 connect = true;
 intercept = [];
+interceptv = [];
 delta_theta = -wrapToPi(B(3)-A(3));
 if delta_theta==0
     return
@@ -564,10 +687,10 @@ tangent = PG.tangent;
 f2_rel = f2-f1;
 hand_theta = atan2(f2_rel(2),f2_rel(1));
 sigma = norm(f2_rel);
-for i=1:size(PG.vertex,2)
+for m=1:size(PG.vertex,2)
     % first find the point on the edge i that will intercept f2
-    v1 = vertex(:,i);
-    t1 = tangent(:,i);
+    v1 = vertex(:,m);
+    t1 = tangent(:,m);
     vertexTof1O = v1-f1O;
     % construct the polynom in alpha  - the relative distance on the
     % edge from the vertex to the point
@@ -575,28 +698,33 @@ for i=1:size(PG.vertex,2)
     b = 2*t1.'*vertexTof1O;
     c = norm(vertexTof1O)^2-sigma^2;
     if b==0
-        alpha = sqrt(-c/a);
+        alphav = sqrt(-c/a);
     else
-        alpha = (-b+sign(b)*sqrt(b^2-4*a*c))/(2*a); %take the option that comes closer to v1
-        % if the closest point on the edge to the axle falls inside the
-        % edge (-1<b<0), both intersections need to be checked.
-        if (b<0 && b>-1) && (alpha<0 || alpha>=1)
-            % if the automatic choice doesn't fit, try the other.
-            alpha = (-b+sqrt(b^2-4*a*c))/(2*a);
+        alphav(1) = (-b+sqrt(b^2-4*a*c))/(2*a);
+        alphav(2) = (-b-sqrt(b^2-4*a*c))/(2*a);
+    end
+    for i = 1:length(alphav)
+        alpha = alphav(i);
+        if alpha>=0 && alpha<1 && isreal(alpha) % if the point is inside the edge
+            int_point=v1+alpha*t1;
+            rel_int_point = int_point-f1O;
+            int_theta = atan2(rel_int_point(2),rel_int_point(1)); % angle of the intercept point relative to the inter-finger angle
+            int_theta = wrapToPi(hand_theta-(int_theta+cur_theta)); % angle of the intercept relative to cur_theta
+            if int_theta*delta_theta>0 && abs(int_theta)<abs(delta_theta)
+                interceptv(end+1,:) = [cur_s,int_theta];
+                connect = false;
+            end
         end
     end
-    if alpha>=0 && alpha<1 && isreal(alpha) % if the point is inside the edge
-        int_point=v1+alpha*t1;
-        rel_int_point = int_point-f1O;
-        int_theta = atan2(rel_int_point(2),rel_int_point(1)); % angle of the intercept point relative to the inter-finger angle
-        int_theta = wrapToPi(hand_theta-(int_theta+cur_theta)); % angle of the intercept relative to cur_theta
-        if int_theta*delta_theta>0 && abs(int_theta)<abs(delta_theta)
-            int_theta = wrapToPi(int_theta+cur_theta);
-            intercept = [cur_s,int_theta];
-            connect = false;
-            return
-        end
+end
+if ~connect
+    mintercept = min(abs(interceptv(:,2))); % minimum delta-theta to intercept
+    interceptInd = find(abs(interceptv(:,2))==mintercept); % index of first edge to intercept
+    intercept = interceptv(interceptInd,:); %#ok<*FNDSB>
+    if size(intercept,1)>1
+        disp('error');
     end
+    intercept(2) = wrapToPi(intercept(2)+cur_theta);
 end
 end
 
@@ -610,23 +738,37 @@ end
 cur_theta = A(3);
 R = [cos(cur_theta) -sin(cur_theta); sin(cur_theta) cos(cur_theta)];
 cur_edge = PG.get('edgeNum',A(1));
-trans = R*PG.tangent(:,cur_edge);
+if delta_s<0 && abs(PG.S(PG.VL(cur_edge))-A(1))<1E-5 %if we're going backwards from a vertex
+    cur_edge = cur_edge-1; % we're actually moving on the previous edge
+    if cur_edge == 0 % if the previous edge is the last edge, fix the numbering
+        cur_edge = length(PG.VL)-1;
+    end
+end
+trans = R*PG.tangent(:,cur_edge); 
 trans = trans/norm(trans);
 cur_position = PG.get('1Pos',A(1));
 vertex = R*(PG.vertex-cur_position);
 tangent = R*PG.tangent;
 f2_rel = f2-f1;
-for i=1:size(PG.vertex,2)
-    v1 = vertex(:,i);
-    t1 = tangent(:,i);
+interceptv = [];
+for m=1:size(PG.vertex,2)
+    v1 = vertex(:,m);
+    t1 = tangent(:,m);
     mat = [t1 -trans];
     if abs(det(mat))>1E-8 % don't check the current edge or any edges parallel to it (there will be other inersections if any exist)
-        p = mat\(f2_rel-v1);
-        if (p(1)>=0&&p(1)<=1)&&(abs(p(2))<=abs(delta_s)&&p(2)*delta_s>0) % find if the edge intercepts the finger after start of movement and before end.
-            intercept = [A(1)+p(2),cur_theta];
+        p = mat\(f2_rel-v1); % p(1) is the relative location on the intercepting edge, p(2) is how much deltaS to intercept
+        if (p(1)>=0&&p(1)<=1)&&(abs(p(2))-abs(delta_s)<-1E-5&&p(2)*delta_s>0) % find if the edge intercepts the finger after start of movement and before end.
+            interceptv(end+1,:) = [A(1)+p(2),cur_theta];
             connect = false;
-            return
         end
+    end
+end
+if ~connect
+    mintercept = min(abs(interceptv(:,1)-A(1))); % minimum deltaS to intercept
+    interceptInd = find(abs(interceptv(:,1)-A(1))==mintercept); % index of first edge to intercept
+    intercept = interceptv(interceptInd,:);
+    if size(intercept,1)>1
+        disp('error');
     end
 end
 end
@@ -643,6 +785,12 @@ if any(vertex(2,:)>0)
 end
 end
 
+function dupeInd = findSSNodeSTheta(nodes,s,theta,finger)
+dupeInd = find(nodes(:,1)==s & nodes(:,3)==theta & nodes(:,end)==finger);
+end
+function dupeInd = findDSNodeSTheta(nodes,s,theta,finger)
+dupeInd = find(nodes(:,finger)==s & nodes(:,3)==theta);
+end
 %%
 % function labels = mark_possible_neighbors(possible_neighbors,nodes,index_list,type_list,labels)
 % theta_index = [4,4,4,3,3,3];
@@ -662,31 +810,32 @@ end
 %     labels(2*i) = text(s,theta+0.2,[num2str(i) ',' num2str(node) ',' num2str(h)] ,'fontSize',10);
 % end
 % end
-function relevantFingers = findRelevantFingers(nodes,cur_node,next_node,type_list,index_list)
-node = [cur_node,next_node];
-types = type_list(node);
-if all(types<4) % both nodes are DS, both planes need to be checked
-    relevantFingers = [1,2];
-else % one of the nodes (at least) is SS, need to find the relevant plane
-    ssind = find(types>3,1,'first');
-    ssnode = node(ssind);
-    sstype = types(ssind);
-    ssnode_par = nodes{sstype}(index_list(ssnode),:);
-    relevantFingers = ssnode_par(end);
-end
-end
+
+% function relevantFingers = findRelevantFingers(nodes,cur_node,next_node,type_list,index_list)
+% node = [cur_node,next_node];
+% types = type_list(node);
+% if all(types<4) % both nodes are DS, both planes need to be checked
+%     relevantFingers = [1,2];
+% else % one of the nodes (at least) is SS, need to find the relevant plane
+%     ssind = find(types>3,1,'first');
+%     ssnode = node(ssind);
+%     sstype = types(ssind);
+%     ssnode_par = nodes{sstype}(index_list(ssnode),:);
+%     relevantFingers = ssnode_par(end);
+% end
+% end
 
 
-function check = inBetweenTheta(theta1,theta2,betweentheta)
-% this functions checks if betweentheta is an angle inside the smallest
-% range connecting theta1 and theta2, not including theta1 and theta2
-% themselves
-check = false;
-theta2 = wrapToPi(theta2-theta1);
-between = wrapToPi(betweentheta-theta1);
-if between*theta2>0 && abs(between)<abs(theta2)
-    check = true;
-end
-end
+% function check = inBetweenTheta(theta1,theta2,betweentheta)
+% % this functions checks if betweentheta is an angle inside the smallest
+% % range connecting theta1 and theta2, not including theta1 and theta2
+% % themselves
+% check = false;
+% theta2 = wrapToPi(theta2-theta1);
+% between = wrapToPi(betweentheta-theta1);
+% if between*theta2>0 && abs(between)<abs(theta2)
+%     check = true;
+% end
+% end
 
 

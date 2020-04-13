@@ -1,12 +1,12 @@
 % %% Define the polygon
 % clear all
 clc
-PG = Polygon([1,0;2,0;2,3;-1,4;-2,3;-1,1;-0.5,1].',[0;1.5]);
+% PG = Polygon([1,0;2,0;2,3;-1,4;-2,3;-1,1;-0.5,1].',[0;1.5]);
 % PG = Polygon([-1,-1;2,-1;3,-3;3,3;1,1;0,2;-1,1;-2,3;0.2,3;-2,5;-3,1;-2,-4].',[0;0.5]);
 % PG = Polygon([-3,0;-1.5,-5;3,-4;3,4;-1.5,5].',[0;0]);
 % PG = Polygon([-3,2;-2,-2;2,-2;2,1;4,1;4,2].',[0;0]);
-% load object.mat
-% PG = Polygon(object,com);
+load object.mat
+PG = Polygon(object,com);
 if ~exist('polyDrawing','var')
     polyDrawing = cell(0);
 end
@@ -39,7 +39,8 @@ nodes{5} = ss_min;
 nodes{6} = ss_saddle;
 % nodes{7} = ss_hook;
 
-nodes = check_SS_for_DS(PG,nodes,f1,f2); %function checks SS_nodes for penetration (of the other finger), marks each to which fingers it is relevant for (1/0 in two places) 
+nodes = check_SS_for_DS(PG,nodes,f1,f2); %function checks SS_nodes for penetration (of the other finger),
+% each node appears once for each finger it is relevant for, with the relevant finger index at the end 
 %%
 if ~exist('graphfig','var')
     graphfig = cell(1,2);
@@ -47,19 +48,36 @@ end
 
 for finger = 1:2
     if isempty(graphfig{finger})||~isgraphics(graphfig{finger})
-        otherFingerRelative = basepos(:,3-finger)-basepos(:,finger);
-        graphfig{finger} = plotGraphNodes(PG,cont,finger,nodes,otherFingerRelative);
-        set(graphfig{finger},'Position',[1921,41,1920,963])
+        if exist(['S' num2str(finger) '_Theta.fig'],'file')
+            graphfig{finger} = openfig(['S' num2str(finger) '_Theta.fig']);
+        else
+            otherFingerRelative = basepos(:,3-finger)-basepos(:,finger);
+            contactHeight = basepos(2,finger);
+            graphfig{finger} = plotGraphNodes(PG,cont,finger,nodes,otherFingerRelative,contactHeight);
+        end
+        set(graphfig{finger},'Position',[1921+(finger-1)*960,41,960,963])
     end
 end
-%%
+
+
+%% Algorithm Run:
 starting_node = [2,1];
 
-
 [Open_list,Closed_list,A,index_list,type_list,path_list,FingerMatrix] = GraphSearch(PG,cont,nodes,starting_node,f1,f2,graphfig);
-%%
+
+%% Graphical presentation of the results:
+for fakeCounter=1:1
 theta_index = [4,4,4,3,3,3];
+if ~exist('graphMarkers','var')
 graphMarkers = cell(0);
+end
+removegraphics = [];
+for i=1:numel(graphMarkers)
+    if ~isgraphics(graphMarkers{i})
+        removegraphics = [removegraphics,i]; %#ok<*AGROW>
+    end
+end
+graphMarkers(removegraphics) = [];
 hold on
 for i=1:length(Closed_list)
     finger = [];
@@ -72,7 +90,7 @@ for i=1:length(Closed_list)
     if cur_node_type<4
         set(groot,'CurrentFigure',graphfig{1})
         hold on
-        graphMarkers{end+1} = plot(s_origin,theta_origin,'ok','markerSize',14,'lineWidth',3);
+        graphMarkers{end+1} = plot(s_origin,theta_origin,'ok','markerSize',14,'lineWidth',3); %#ok<*SAGROW>
         s_origin(2) =node_par(2);
         set(groot,'CurrentFigure',graphfig{2})
         hold on
@@ -134,7 +152,8 @@ for finger = 1:2
 % saveas(graphfig{finger},['Polygon Escape Graph' num2str(finger) '.bmp'])
 end
 %%
-
+xpos = [(0:384:1536),(0:384:1536)];
+ypos = [542*ones(1,5),41*ones(1,5)];
 for i=1:length(Closed_list)
     f1t = f1;
     f2t = f2;
@@ -150,10 +169,22 @@ for i=1:length(Closed_list)
         f2t = f1;
     end
     fig = drawPolygonNode(PG,s_origin,theta_origin,f1t,f2t);
+    if i<=10
+    set(fig,'Position',[xpos(i),ypos(i),384,461])
+    end
+    xlim([-4 4]);
+    ylim([-5 5]);
     if i<length(Closed_list)
         title(['Node ' num2str(i) ', height = ,' num2str(h_origin)]);
     else
         title(['Node ' num2str(i) ', height = ,' num2str(h_origin) ', Final']);
     end
 %     saveas(fig,['Node ' num2str(i) '.bmp']);
+end
+%%
+if ~isempty(graphMarkers) && false
+    for i = 1:numel(graphMarkers)
+        delete(graphMarkers{i});
+    end
+end
 end

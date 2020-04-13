@@ -134,7 +134,7 @@ switch spec
         f1 = varargin{1};
         s1 = varargin{2};
         theta = varargin{3};
-        relative_to_contact = [cos(theta) -sin(theta);sin(theta) cos(theta)]*(PG.com-PG.get('1Pos',s1).');
+        relative_to_contact = [cos(theta) -sin(theta);sin(theta) cos(theta)]*(PG.com-PG.get('1Pos',s1));
         varargout{1} = f1+relative_to_contact;
 end
         
