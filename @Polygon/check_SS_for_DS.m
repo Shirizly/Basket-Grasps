@@ -5,13 +5,12 @@ for i = 4:6 %types of ss_nodes
     ss_nodes_updated = [];
     for j=1:size(ss_nodes,1) % number of nodes in type i
         node = ss_nodes(j,:);
-        for k=1:2 %each finger
+        for k=1:2 % each finger
             if not(check_ss_penetration(PG,node,fingers(:,3-k)-fingers(:,k)))
                 ss_nodes_updated(end+1,:) = [node,k];
-                ss_nodes_updated(end,2) = ss_nodes_updated(end,2)+fingers(k,2); %updating the height of the node from the assumption of contact at height 0 to contact at finger location
+                ss_nodes_updated(end,2) = ss_nodes_updated(end,2)+fingers(2,k); %updating the height of the node from the assumption of contact at height 0 to contact at finger location
             end
-        end
-        
+        end 
     end
     nodes{i} = ss_nodes_updated;
 end   

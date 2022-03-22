@@ -11,10 +11,13 @@ properties
     S = [];
     X = [];
     VL = [];
+    CVL = [];
+    THL = [];
     tangent = [];
     normal = [];
     sv = [];
     elength = [];
+    scale = 0;
 end
 methods
     %% Main functions
@@ -35,8 +38,14 @@ methods
                     PG.normal(:,k)=PG.J*PG.tangent(:,k)/norm(PG.tangent(:,k));
                     PG.elength(k)=norm(extended_Polygon(:,k+1)-extended_Polygon(:,k));
                     PG.sv(k+1) = PG.sv(k)+PG.elength(k);
+                    PG.scale = PG.scale + norm(PG.vertex(:,k));
                 end
             end
+            if any(PG.com~=0)
+                PG.vertex = PG.vertex-PG.com;
+                PG.com = [0;0];
+            end
+            PG.scale = PG.scale/PG.nv;
     end
     
     function [PG,s_tot,X_tot,vertex_list] = findBdyVariable(PG,res)
@@ -70,6 +79,52 @@ methods
         PG.VL = vertex_list;
         PG.S = s_tot;
         PG.X = X_tot;
+    end
+    
+     function [PG,s_tot,X_tot,THL,CVL,vertex_list] = findBdyVariable3(PG,res)
+        % FINDBDYVARIABLE computes the contact space variable and (x,y) points along
+        % the object's boundary, for graphical purposes.
+
+        PG.res = res;
+        vert = PG.vertex.';
+        
+        scale=1/res;
+        
+        s_tot=[];
+        X_tot=[];
+        vertex_list=1;
+        for k=1:size(vert,1)
+            if PG.elength(k)<scale
+                num_points=2;
+            else
+                num_points=round(PG.elength(k)/scale)+1;
+            end
+            s=linspace(0,PG.elength(k),num_points);
+            if k~=size(vert,1)
+                s=s(1:end-1);
+            end
+            pos=vert(k,:).'*ones(size(s))+PG.tangent(:,k)*s/PG.elength(k);
+            
+            s_tot=[s_tot;(PG.sv(k)+s).'];
+            X_tot=[X_tot;pos.'];
+            vertex_list=[vertex_list;vertex_list(end)+num_points-1];
+        end
+        PG.VL = vertex_list;
+        PG.S = s_tot;
+        PG.X = X_tot;
+        
+        %% convex vertex list and angles
+        % CVL points to vertices which belong on the convex hull (convertex), their S
+        % parameter can be found by PG.S(PG.VL(CVL));
+        % THL is the angle of the object, relative to initial orientation,
+        % at which it contacts both the current and the previous convertex.
+        [convex_vert_index] = convhull(vert);
+        convert = vert(convex_vert_index,:).';
+        convedges = diff([convert,convert(:,1)],1,2);
+        THL = wrapToPi(-atan2(convedges(2,1:end-1),convedges(1,1:end-1)));
+        CVL = convex_vert_index;
+        PG.CVL = CVL;
+        PG.THL = THL;
     end
     
     function [ height_matrix ] = single_support_height(PG,s,theta)
@@ -566,7 +621,7 @@ methods
             cond2 = all(lamda>0); % contact forces (+gravity) positively span the origin
             grmat = [n1 n2 gravity;
                 -(PG.com-p1).'*PG.J*n1 -(PG.com-p2).'*PG.J*n2 0];
-            cond1 = abs(det(grmat))<PG.epsilon; % grasp matrix is singular
+            cond1 = abs(det(grmat))<PG.epsilon/10; % grasp matrix is singular
             type = 1; %non parallel
         end
         if and(cond1,cond2)
@@ -608,7 +663,7 @@ methods
         
         
     end
-
+    
     function [s1,s2,linesegs] = Eqcheck(PG)
         s1 = 0;
         s2 = 0;
@@ -618,36 +673,36 @@ methods
         Xe(PG.VL,:) = [];
         startline = [];
         linesegs = zeros(1,4);
-        for i=2:length(se) %edge-edge check
-            for j = 1:i
-                p1 = Xe(i,:).';
-                p2 = Xe(j,:).';
-                n1 = PG.get('normal',se(i));
-                n2 = PG.get('normal',se(j));
-%                 if and(se(i)>18.123,se(j)>4.123)
-%                     1
+%         for i=2:length(se) %edge-edge check
+%             for j = 1:i
+%                 p1 = Xe(i,:).';
+%                 p2 = Xe(j,:).';
+%                 n1 = PG.get('normal',se(i));
+%                 n2 = PG.get('normal',se(j));
+% %                 if and(se(i)>18.123,se(j)>4.123)
+% %                     1
+% %                 end
+%                 [flag,type] = PG.EEGraspCheck(p1,p2,n1,n2);
+%                 if and(flag,type==2)
+%                     if isempty(startline)
+%                         startline = [se(i),se(j)];
+%                         endline = [se(i),se(j)];
+%                     else
+%                         endline = [se(i),se(j)];
+%                     end
 %                 end
-                [flag,type] = PG.EEGraspCheck(p1,p2,n1,n2);
-                if and(flag,type==2)
-                    if isempty(startline)
-                        startline = [se(i),se(j)];
-                        endline = [se(i),se(j)];
-                    else
-                        endline = [se(i),se(j)];
-                    end
-                end
-                if flag&&type==1
-                    s1(end+1) = se(i);
-                    s2(end+1) = se(j);
-                    s1(end+1) = se(j);
-                    s2(end+1) = se(i);
-                end
-                if and(~flag,~isempty(startline)) %end of a line segment
-                    linesegs(end+1,:) = [startline,endline];
-                    startline = [];
-                end
-            end
-        end
+%                 if flag&&type==1
+%                     s1(end+1) = se(i);
+%                     s2(end+1) = se(j);
+%                     s1(end+1) = se(j);
+%                     s2(end+1) = se(i);
+%                 end
+%                 if and(~flag,~isempty(startline)) %end of a line segment
+%                     linesegs(end+1,:) = [startline,endline];
+%                     startline = [];
+%                 end
+%             end
+%         end
         
         for i=1:length(PG.VL)-1 %vertex-edge check
             for j=1:length(se)
@@ -683,7 +738,7 @@ methods
 %         end
         s1 = s1(2:end);
         s2 = s2(2:end);
-        linesegs = linesegs(2:end,:);
+%         linesegs = linesegs(2:end,:);
     end
 
     function status = Statuscheck(PG,s1,s2,S,X,VL)
@@ -693,7 +748,7 @@ methods
             sind2 = find(PG.S==s2(i));
             vert1 = find(PG.VL==sind1);
             vert2 = find(PG.VL==sind2);
-            if or(~isempty(vert1),~isempty(vert2)) %check if V-V or V-E case
+            if or(~isempty(vert1),~isempty(vert2)) %V-V or V-E case
                 status(i) = 0;
                 if isempty(vert2)
                     n1 = PG.get('normal',s1(i));
@@ -712,7 +767,7 @@ methods
                     status(i) = sign(lamda(1));
                     end
                 end    
-            else
+            else % E-E case
                 p1 = X(sind1,:).';
                 p2 = X(sind2,:).';
                 n1 = PG.get('normal',s1(i));
@@ -729,7 +784,136 @@ methods
             end
         end
     end
-
+    function [BG,NBG] = StatusSeparate(PG,s1,s2,X)
+        BG = []; NBG = [];
+        try
+            for i=1:length(s1)
+                sind1 = find(PG.S==s1(i)); 
+                sind2 = find(PG.S==s2(i));
+                vert1 = find(PG.S(PG.VL)==s1(i));
+                vert2 = find(PG.S(PG.VL)==s2(i));
+                if or(~isempty(vert1),~isempty(vert2)) %V-V/V-E/E-V case
+                    status(i) = 0;
+                    if isempty(vert2) % V-E
+                        n1 = PG.get('normal',s1(i));
+                        if s1(i) == PG.S(end)
+                            n2 = PG.get('normal',PG.epsilon);
+                        else
+                            n2 = PG.get('normal',s1(i)+PG.epsilon);
+                        end
+                        if s1(i)+PG.epsilon>PG.S(end)
+                            n2 = PG.normal(:,1);
+                        else
+                            n2 = PG.get('normal',s1(i)+PG.epsilon);
+                        end
+                        if sind1-1>0
+                            p1 = X(sind1-1,:).';
+                        else
+                            p1 = X(end-1,:).';
+                        end
+                        if sind1+1<=length(X)
+                            p2 = X(sind1+1,:).';
+                        else
+                            p2 = X(2,:).';
+                        end
+                        lamda = [n1 -n2]\(p2-p1);
+                        switch sign(lamda(1))
+                            case 1
+                                NBG(:,end+1) = [s1(i);s2(i)];
+                            case -1
+                                BG(:,end+1) = [s1(i);s2(i)];
+                        end
+                    else % ?-V
+                        if isempty(vert1) % E-V
+                            n1 = PG.get('normal',s2(i));
+                            if s2(i)+PG.epsilon>PG.S(end)
+                                n2 = PG.normal(:,1);
+                            else
+                                n2 = PG.get('normal',s2(i)+PG.epsilon);
+                            end
+                            if sind2-1>0
+                                p1 = X(sind2-1,:).';
+                            else
+                                p1 = X(end-1,:).';
+                            end
+                            if sind2+1<=length(X)
+                                p2 = X(sind2+1,:).';
+                            else
+                                p2 = X(2,:).';
+                            end
+                            lamda = [n1 -n2]\(p2-p1);
+                            switch sign(lamda(1))
+                                case 1
+                                    NBG(:,end+1) = [s1(i);s2(i)];
+                                case -1
+                                    BG(:,end+1) = [s1(i);s2(i)];
+                            end
+                        else % V-V
+                            % too singular to matter, just skip it
+                        end
+                    end
+                else % E-E case
+                    if isempty(sind1)
+                        sind1 = find(PG.S<=s1(i),1,'last');
+                        p11 = X(sind1,:).';
+                        if sind1 == length(PG.S)
+                            p12 = X(1,:).';
+                        else
+                            p12 = X(sind1+1,:).';
+                        end
+                        p1 = p11 + (s1(i)-PG.S(sind1))/(PG.S(sind1+1)-PG.S(sind1))*(p12-p11);
+                    else
+                        p1 = X(sind1,:).';
+                    end
+                    if isempty(sind2)
+                        sind2 = find(PG.S<=s2(i),1,'last');
+                        p21 = X(sind2,:).';
+                        if sind2 == length(PG.S)
+                            p22 = X(1,:).';
+                        else
+                            p22 = X(sind2+1,:).';
+                        end
+                        p2 = p21 + (s2(i)-PG.S(sind2))/(PG.S(sind2+1)-PG.S(sind2))*(p22-p21);
+                    else
+                        p2 = X(sind2,:).';
+                    end
+                    n1 = PG.get('normal',s1(i));
+                    n2 = PG.get('normal',s2(i));
+                    N = [n1 n2];
+                    if det(N) == 0
+                        status = 0;
+                    else
+                        flamda = N\(-PG.gv);
+                        ro = [n1 -n2]\(p2-p1);
+                        p = p1+ro(1)*n1;
+                        %                     status = sign(PG.com(2)-p(2));
+                        condElon = -flamda.'*ro+(PG.com(2)-p(2));
+                        h = [n1 -n2]\(p2-p1); %distance fingers-to-norm.inters.
+                        T = p1 + h(1)*n1; %normal intersection
+                        hcm = PG.com(2)-T(2);
+                        condAlon = hcm - (p1-p2).'*[n2 PG.J*n2]*n1/det(N);
+                        if abs(condElon-condAlon)>1E-9
+                            disp('error in stability condition');
+                            %                     else
+                            %                         disp(condAlon-condElon);
+                        end
+                        status = sign(condElon+0.2*PG.scale);
+                    end
+                    switch status
+                        case 1
+                            NBG(:,end+1) = [s1(i);s2(i)];
+                        case -1
+                            BG(:,end+1) = [s1(i);s2(i)];
+                        case 0
+                            disp('metastable')
+                            NBG(:,end+1) = [s1(i);s2(i)];
+                    end
+                end
+            end
+        catch me
+            disp('error in separation')
+        end
+    end
     
 end
 end

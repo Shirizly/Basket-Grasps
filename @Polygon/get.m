@@ -16,14 +16,32 @@ switch spec
         
     case 'normal'
         s = varargin{1};
-        for k=1:PG.nv
-            if s <= PG.sv(k+1)
-                varargout{1} = PG.normal(:,k);
-                return
-            end
+        if s == 0 % for periodicity in s
+            varargout{1} = PG.normal(:,end);
+            return
         end
-        varargout{1} = [];
+        k = find(s>PG.sv,1,'last');
+        if ~isempty(k)
+            varargout{1} = PG.normal(:,k);
+        else
+            varargout{1} = [];
+        end
+%         for k=1:PG.nv
+%             if s <= PG.sv(k+1)
+%                 varargout{1} = PG.normal(:,k);
+%                 return
+%             end
+%         end
+%         varargout{1} = [];
         
+%     case 'normal2'
+%         s = varargin{1};
+%         k = find(s>=PG.sv,1,'last');
+%         if ~isempty(k)
+%             varargout{1} = PG.normal(:,k);
+%         else
+%             varargout{1} = [];
+%         end
         
     case 'rect'
         sf1 = varargin{1};
@@ -56,6 +74,27 @@ switch spec
         end
         varargout = {f1pos,f2pos};
         
+    case '2pos' %interpolate the original location of 2 points on the boundary
+        s1 = varargin{1};
+        s2 = varargin{2};
+        ind12 = find(PG.S>=s1,1,'first');
+        ind11 = find(PG.S<=s1,1,'last');
+        J = [0 1;-1 0];
+        if ind12~=ind11
+            vertex = find(PG.VL<=ind11,1,'last');
+            f1pos = PG.X(PG.VL(vertex),:).'+J*PG.normal(:,vertex)*(s1-PG.S(PG.VL(vertex)));
+        else
+            f1pos = PG.X(ind12,:).';
+        end % in case the points are the same, no need (or possible) to interpolate
+        ind22 = find(PG.S>=s2,1,'first');
+        ind21 = find(PG.S<=s2,1,'last');
+        if ind22~=ind21
+            vertex = find(PG.VL<=ind21,1,'last');
+            f2pos = PG.X(PG.VL(vertex),:).'+J*PG.normal(:,vertex)*(s2-PG.S(PG.VL(vertex)));
+        else 
+            f2pos = PG.X(ind22,:).';
+        end
+        varargout = {f1pos,f2pos};
         
     case '1Pos' %interpolate the original location of a point on the boundary
         s = varargin{1};
@@ -69,8 +108,20 @@ switch spec
         end
         varargout = {fpos};
         
+    case '1pos' %interpolate the original location of a point on the boundary
+        s = varargin{1};
+        ind2 = find(PG.S>=s,1,'first');
+        ind1 = find(PG.S<=s,1,'last');
+        J = [0 1;-1 0];
+        if ind2~=ind1
+        vertex = find(PG.VL<=ind1,1,'last');
+        fpos = PG.X(PG.VL(vertex),:).'+J*PG.normal(:,vertex)*(s-PG.S(PG.VL(vertex)));
+        else % in case the points are the same, no need (or possible) to interpolate
+            fpos = PG.X(ind2,:).';
+        end
+        varargout = {fpos};
         
-    case 'edgeNum'
+    case 'edgeNum' %find the edge contacted at s, each vertex sends to the next edge
         s = varargin{1};
         edgenum = find(PG.S(PG.VL)>s,1,'first') - 1;
         if isempty(edgenum) %if point is last s (representing first vertex)
@@ -122,6 +173,8 @@ switch spec
         h = dist(2,1);
         varargout{1} = h;
         switch nargout
+            case 1
+                varargout{1} = [CoM;theta].';
             case 2
                 varargout{2} = {theta,d};
             case 3

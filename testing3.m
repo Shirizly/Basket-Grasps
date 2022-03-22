@@ -1,34 +1,140 @@
-% %% Define the polygon
-% clear all
+%% Define the polygon
+clearvars
 clc
-% PG = Polygon([1,0;2,0;2,3;-1,4;-2,3;-1,1;-0.5,1].',[0;1.5]);
-% PG = Polygon([-1,-1;2,-1;3,-3;3,3;1,1;0,2;-1,1;-2,3;0.2,3;-2,5;-3,1;-2,-4].',[0;0.5]);
-% PG = Polygon([-3,0;-1.5,-5;3,-4;3,4;-1.5,5].',[0;0]);
-% PG = Polygon([-3,2;-2,-2;2,-2;2,1;4,1;4,2].',[0;0]);
-load object.mat
-PG = Polygon(object,com);
-if ~exist('polyDrawing','var')
-    polyDrawing = cell(0);
+type = 4;
+switch type
+    case 0 % pentagon
+        R = [0 1;-1 0];
+        theta = -pi()/2;
+        R = [cos(theta) -sin(theta);sin(theta) cos(theta)];
+        PG = Polygon(R*[3,-4;3,4;-1.5,5;-3,0;-1.5,-5].'+[0;3],[0;3]);
+        subFolderName = 'Examples for research proposal\Pentagon'; % where to save results
+%         f2 = [-4.4;1.8];
+%         f1 = [4.4;1.8];
+f2 = [8.3223;-1.3181];
+        f1 = [0;0];
+        basepos = [f1,f2];
+        res = 50;
+        starting_node = [2,4];
+        res = 50;
+%         starting_node = [2,3];
+    case 1 % cup
+        % PG = Polygon([1,0;2,0;2,3;-1,4;-2,3;-1,1;-0.5,1].',[0;1.5]);
+        % PG = Polygon([-1,-1;2,-1;3,-3;3,3;1,1;0,2;-1,1;-2,3;0.2,3;-2,5;-3,1;-2,-4].',[0;0.5]);
+        PG = Polygon([-3,2;-2,-2;2,-2;1,-0.5;4,1;4,2].'+[0;3],[0;3]);
+       subFolderName = 'Examples for research proposal\Cup'; % where to save results
+       f2 = [2;4];
+       f1 = [-2.5;2.8];
+       basepos = [f1,f2];
+       res = 50;
+       starting_node = [2,6];
+    case 2 % bottle
+        load object5.mat
+        %     object = [object(:,7:8) object(:,1:6)];
+%         com = [0.045,0.07].';
+%         object = object + 0.001*randn(size(object));
+        PG = Polygon(object,com);
+        subFolderName = 'Examples for research proposal\Bottle'; % where to save results
+        f2 = [0.06;0.01];
+        f1 = [0;0];
+        basepos = [f1,f2];
+        res = 1500;
+        starting_node = [2,21];
+    case 3 % Elon
+        load object.mat
+        %     object = [object(:,7:8) object(:,1:6)];
+        com = [0.045,0.07].';
+        PG = Polygon(object,com);
+        subFolderName = 'Examples for research proposal\Elon'; % where to save results
+    case 4 % Crown
+        object = [-2,-1;2,-1;3,3;1,0;0,1;-1,0;-4,1].';
+        com = [0,0].';
+        PG = Polygon(object,com);
+        subFolderName = 'Examples for research proposal\Crown'; % where to save results
+        f2rel = [2.7519;2.0074];
+        f1rel = [-2.8470;-0.1530];
+        f1 = [0;0];
+        f2 = f2rel-f1rel;
+        res = 20;
+         starting_node = [2,4];    
+    case 5 % new bottle
+        load NewBottle.mat
+        %     object = [object(:,7:8) object(:,1:6)];
+%         com = [0.045,0.07].';
+%         object = object + 0.001*randn(size(object));
+%         theta =  1.515;
+%         R = [cos(theta) sin(theta);-sin(theta) cos(theta)];
+%         object = R*object;
+        com(2) = max(object(2,:))-com(2);
+        object(2,:) = max(object(2,:))-object(2,:);
+        object(2,1) = 0;
+        object = round(object./20,1);
+        com = round(com./20,0);
+        PG = Polygon(object,com);
+        subFolderName = 'Examples for research proposal\Bottle'; % where to save results
+        f2 = [4;2];
+        f1 = [0;0];
+        basepos = [f1,f2];
+        res = 50;
+        starting_node = [2,24];
+        case 6 % Gun
+%         load gun2.mat
+%         object = Round_object;
+%         object = 0.8*[1,10;26,10;21,1;29,9;31,2;28,0;32,0;32,12;35,16;32,18;33,16;32,14;31,14;31,16;1,16;0.5,13.5;0,13;0.5,12.5].';
+        
+        object = 0.8*[1,10;26,10;21,1;29,9;32,0;32,12;36,12;40,8;41,9;35,14;31,16;1,16].';%32,14;31,14
+        com = 0.8*[27;10];
+        theta =  0.423;
+        R = [cos(theta) -sin(theta);sin(theta) cos(theta)];
+         object = R*object;
+         com = R*com;
+%          object = round(object./20,1);
+%          com = round(com./20,0);
+        PG = Polygon(object,com);
+        subFolderName = 'Examples for research proposal\Gun'; % where to save results
+        f2 = [18.2;16.09];
+        f1 = [11.4;13.9];
+        basepos = [f1,f2];
+        res = 30;
+        starting_node = [2,6];
 end
-if isempty(polyDrawing)||~isgraphics(polyDrawing)
+
+% draw the polygon (only once)
+% if ~exist('polyDrawing','var')
+%     polyDrawing = cell(0);
+% end
+% if isempty(polyDrawing)||~isgraphics(polyDrawing)
     polyDrawing = PG.drawPolygon();
-end
-
-%% Find equilibrium grasps
-res = 50;
-[PG,S,X,~] = PG.findBdyVariable(res);
-
-%% draw s-theta plane
-f2 = [1;0];
-f1 = [-2;1];
-basepos = [f1,f2];
+% end
 %%
+% Find equilibrium grasps
+
+% [PG,S,X,THL,CVL,~] = PG.findBdyVariable3(res);
+[PG,S,X] = PG.findBdyVariable(res);
+
+% identify nodes, create double-support contours
 Sigma=inter_finger_distance(X,X);
+if type == 4
+    s1 = 19.24;
+    s2 = 7.242;
+    theta = 0;
+    
+    f1 = [0;0];
+    f1rel = PG.get('1Pos',s1);
+    f2rel = PG.get('1Pos',s2);
+    axle = f1;
+    d = f1-f1rel;
+    R = [cos(theta) -sin(theta); sin(theta) cos(theta)];
+    f2 = f1 + R*(f2rel-f1rel);
+    basepos = [f1,f2];
+end
+   
 sig = norm(f2-f1);
 [cont_original] = PG.GetSigmaContours(Sigma,sig);
 
+
 cont = PG.CleanContour(cont_original,basepos);
-%%
+
 [ds_max,ds_min,ds_virtual] = PG.DSNodes(cont);
 [ss_max,ss_min,ss_saddle] = PG.SSNodes();
 nodes{1} = ds_max;
@@ -37,36 +143,69 @@ nodes{3} = ds_virtual;
 nodes{4} = ss_max;
 nodes{5} = ss_min;
 nodes{6} = ss_saddle;
-% nodes{7} = ss_hook;
 
-nodes = check_SS_for_DS(PG,nodes,f1,f2); %function checks SS_nodes for penetration (of the other finger),
+nodes = check_SS_for_DS(PG,nodes,f1,100*(f2-f1)); %function checks SS_nodes for penetration (of the other finger),
 % each node appears once for each finger it is relevant for, with the relevant finger index at the end 
-%%
+% save([pwd '/' subFolderName '/PreGraph.mat'],'PG','nodes','cont','starting_node','f1','f2');
+%% draw the contact space
+loadfromfile = 0;
+if loadfromfile == 1
+    for finger = 1:2
+        if exist([pwd '/' subFolderName '/Nodes s' num2str(finger) '.fig'],'file')
+            graphfig{finger} = openfig([pwd '/' subFolderName '/Nodes s' num2str(finger) '.fig']); 
+%             graphfig{finger} = openfig([pwd '/' subFolderName '/Polygon Escape Graph' num2str(finger) '.fig']); 
+        end
+    end
+end
 if ~exist('graphfig','var')
     graphfig = cell(1,2);
 end
 
 for finger = 1:2
     if isempty(graphfig{finger})||~isgraphics(graphfig{finger})
-        if exist(['S' num2str(finger) '_Theta.fig'],'file')
-            graphfig{finger} = openfig(['S' num2str(finger) '_Theta.fig']);
-        else
             otherFingerRelative = basepos(:,3-finger)-basepos(:,finger);
             contactHeight = basepos(2,finger);
             graphfig{finger} = plotGraphNodes(PG,cont,finger,nodes,otherFingerRelative,contactHeight);
-        end
-        set(graphfig{finger},'Position',[1921+(finger-1)*960,41,960,963])
+
     end
+    set(graphfig{finger},'Position',[(finger-1)*960,41,960,963])
+    set(gcf,'renderer','Painters')
+end
+%%
+% tic
+% [OpenList,ClosedList,A,index_list,type_list,path_list,FingerMatrix,pathwayMatrix] = GraphConstruction(PG,cont,nodes,f1,f2,graphfig);
+% toc
+% save([pwd '/' subFolderName '/completeGraph.mat'],'ClosedList','A','index_list','type_list','path_list','FingerMatrix','pathwayMatrix');
+%% Graphical presentation of the results:
+% load([pwd '/' subFolderName '/completeGraph.mat'])
+% graphMarkers = plotResults_fullgraph(nodes,cont,ClosedList,index_list,type_list,A,FingerMatrix,pathwayMatrix,graphfig,subFolderName);
+%%
+for finger = 1:2
+
+%             graphfig{finger} = openfig([pwd '/' subFolderName '/Fullgraph' num2str(finger) '.fig']);
+
+%            graphfig{finger} = openfig([pwd '/' subFolderName '/Nodes s' num2str(finger) '.fig']);
+
+%     set(graphfig{finger},'Position',[(finger-1)*960,41,960,963])
 end
 
-
 %% Algorithm Run:
-starting_node = [2,1];
 
-[Open_list,Closed_list,A,index_list,type_list,path_list,FingerMatrix] = GraphSearch(PG,cont,nodes,starting_node,f1,f2,graphfig);
+[Open_list,Closed_list,A,index_list,type_list,path_list,FingerMatrix,pathwayMatrix] = GraphSearch(PG,cont,nodes,starting_node,f1,f2,graphfig);
 
-%% Graphical presentation of the results:
-for fakeCounter=1:1
+
+
+%%
+plotResults_graphSearch(nodes,cont,Closed_list,index_list,type_list,path_list,FingerMatrix,pathwayMatrix,graphfig,subFolderName)
+
+%%
+[U,delU,pp] = plotResults_pathPositionsNew(PG,nodes,Closed_list,index_list,type_list,path_list,basepos,subFolderName)
+%%
+save([pwd '/' subFolderName '/AlgResult.mat'],'U','delU','pp','PG','Open_list','Closed_list','A','index_list','type_list','path_list','FingerMatrix','pathwayMatrix','nodes','cont','basepos','starting_node')
+% plotResults_NotpathPositions(PG,nodes,Closed_list,index_list,type_list,path_list,basepos,subFolderName)
+
+%%
+for drawResults=1:0 %for loop to allow folding
 theta_index = [4,4,4,3,3,3];
 if ~exist('graphMarkers','var')
 graphMarkers = cell(0);
@@ -79,12 +218,13 @@ for i=1:numel(graphMarkers)
 end
 graphMarkers(removegraphics) = [];
 hold on
-for i=1:length(Closed_list)
+for i=1:length(Closed_list) % mark the current node of each step of the algorithm
     finger = [];
-    connect_ind = find(path_list==Closed_list(i));
-    node_ind = index_list(Closed_list(i));
+    cur_node_ind=Closed_list(i);
+    connect_ind = find(path_list==cur_node_ind);
+    cur_node_ind_intype = index_list(cur_node_ind);
     cur_node_type = type_list(Closed_list(i));
-    node_par = nodes{cur_node_type}(node_ind,:);
+    node_par = nodes{cur_node_type}(cur_node_ind_intype,:);
     s_origin =node_par(1);
     theta_origin = node_par(theta_index(cur_node_type));
     if cur_node_type<4
@@ -101,10 +241,12 @@ for i=1:length(Closed_list)
         hold on
         graphMarkers{end+1} = plot(s_origin,theta_origin,'ok','markerSize',14,'lineWidth',3);
     end
-    for j = 1:length(connect_ind)
-        node_ind = index_list(connect_ind(j));
-        node_type = type_list(connect_ind(j));
-        node_par = nodes{node_type}(node_ind,:);
+    for j = 1:length(connect_ind) % mark each neighbor of the current node and connect them
+        node_ind = connect_ind(j);
+        pathway = pathwayMatrix{cur_node_ind,node_ind};
+        node_ind_intype = index_list(node_ind);
+        node_type = type_list(node_ind);
+        node_par = nodes{node_type}(node_ind_intype,:);
         s =node_par(1);
         theta = node_par(theta_index(node_type));
         if node_type<4 % next node is DS_node
@@ -117,20 +259,26 @@ for i=1:length(Closed_list)
                 if any([1,3]==FingerMatrix(Closed_list(i),connect_ind(j)))
                     set(groot,'CurrentFigure',graphfig{1})
                     hold on
-                    graphMarkers{end+1} = plot([s(1),s_origin(1)],[theta,theta_origin],'r-','lineWidth',4);
                     graphMarkers{end+1} = plot(s(1),theta,'or','markerSize',14);
+                    graphMarkers = plotEdge(pathway,cont,graphMarkers,1);
+%                     graphMarkers{end+1} = plot([s(1),s_origin(1)],[theta,theta_origin],'r-','lineWidth',4);
+                    
                 end
                 if any([2,3]==FingerMatrix(Closed_list(i),connect_ind(j)))
                     set(groot,'CurrentFigure',graphfig{2})
                     hold on
-                    graphMarkers{end+1} = plot([s(2),s_origin(2)],[theta,theta_origin],'r-','lineWidth',4);
                     graphMarkers{end+1} = plot(s(2),theta,'or','markerSize',14);
+                    graphMarkers = plotEdge(pathway,cont,graphMarkers,2);
+%                     graphMarkers{end+1} = plot([s(2),s_origin(2)],[theta,theta_origin],'r-','lineWidth',4);
+                    
                 end
             else % current node is SS_node
                 set(groot,'CurrentFigure',graphfig{finger})
                 hold on
-                graphMarkers{end+1} = plot([s(finger),s_origin],[theta,theta_origin],'r-','lineWidth',4);
                 graphMarkers{end+1} = plot(s(finger),theta,'or','markerSize',14);
+                graphMarkers = plotEdge(pathway,cont,graphMarkers,finger);
+%                 graphMarkers{end+1} = plot([s(finger),s_origin],[theta,theta_origin],'r-','lineWidth',4);
+                
             end
         else % next node is SS_node
             next_finger = node_par(end);
@@ -140,18 +288,20 @@ for i=1:length(Closed_list)
             if length(s_origin)>1
                 s_origin_temp = s_origin(next_finger);
             end
-            graphMarkers{end+1} = plot([s,s_origin_temp],[theta,theta_origin],'r-','lineWidth',4);
             graphMarkers{end+1} = plot(s,theta,'or','markerSize',14);
+            graphMarkers = plotEdge(pathway,cont,graphMarkers,next_finger);
+%             graphMarkers{end+1} = plot([s,s_origin_temp],[theta,theta_origin],'r-','lineWidth',4);
+            
         end
     end
 end
 hold off 
 for finger = 1:2
-% set(graphfig{finger},'Position',[0,41,1400,600])
-
-% saveas(graphfig{finger},['Polygon Escape Graph' num2str(finger) '.bmp'])
+saveas(graphfig{finger},[pwd '/' subFolderName '/Polygon Escape Graph' num2str(finger) '.bmp'])
+saveas(graphfig{finger},[pwd '/' subFolderName '/Polygon Escape Graph' num2str(finger) '.fig'])
 end
-%%
+%% plot each position of the polygon along the path in separate figures
+if 1
 xpos = [(0:384:1536),(0:384:1536)];
 ypos = [542*ones(1,5),41*ones(1,5)];
 for i=1:length(Closed_list)
@@ -172,19 +322,49 @@ for i=1:length(Closed_list)
     if i<=10
     set(fig,'Position',[xpos(i),ypos(i),384,461])
     end
-    xlim([-4 4]);
-    ylim([-5 5]);
+    xlim([-6 6]);
+    ylim([-10 6]);
     if i<length(Closed_list)
         title(['Node ' num2str(i) ', height = ,' num2str(h_origin)]);
     else
         title(['Node ' num2str(i) ', height = ,' num2str(h_origin) ', Final']);
     end
-%     saveas(fig,['Node ' num2str(i) '.bmp']);
+    saveas(fig,[pwd '/' subFolderName '/Node ' num2str(i) '.bmp']);
+    saveas(fig,[pwd '/' subFolderName '/Node ' num2str(i) '.fig']);
 end
-%%
+end
+%% Removing markings from the graphs to reuse them
 if ~isempty(graphMarkers) && false
     for i = 1:numel(graphMarkers)
         delete(graphMarkers{i});
     end
+end
+end
+%%
+function graphMarkers = plotEdge(pathway,cont,graphMarkers,finger)
+for i=1:numel(pathway)-1
+    node1 = pathway{i}; %nodes here refer to points along the pathway, not necessarily nodes of the graph
+    node2 = pathway{i+1};
+    s1 = node1(1,1); theta1 = node1(1,3);
+    s2 = node2(1,1); theta2 = node2(1,3);
+    if length(node1)==3
+        if abs(theta2-theta1)<pi() % if the pathway goes directly over the plane
+            graphMarkers{end+1} = plot([s1,s2],[theta1,theta2],'r--','lineWidth',4);
+        else %otherwise, it goes to +-pi, and comes from the other (over the cycle of theta)
+            thetas = sort([theta1,theta2]);
+            graphMarkers{end+1} = plot([s1,s2],[thetas(1),-pi()],'r--','lineWidth',4);
+            graphMarkers{end+1} = plot([s1,s2],[thetas(2),pi()],'r--','lineWidth',4);
+        end
+        % need to add check for theta going the wrong direction
+        % (delta_theta>pi)
+    else
+        seg = cont{node1(end-3)};
+        if node1(end-2)>node2(end-2)
+            graphMarkers{end+1} = plot(seg(finger,node2(end-2):8:node1(end-2)),seg(4,node2(end-2):8:node1(end-2)),'r--','lineWidth',6,'markerSize',6);
+        else
+            graphMarkers{end+1} = plot(seg(finger,node1(end-2):8:node2(end-2)),seg(4,node1(end-2):8:node2(end-2)),'r--','lineWidth',6,'markerSize',6);
+        end
+    end
+    
 end
 end

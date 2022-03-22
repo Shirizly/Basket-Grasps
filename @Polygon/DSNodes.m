@@ -121,7 +121,7 @@ for j = 1:nseg
                 if diff_theta1(find_cross(i))<epsi
                     ds_virtual(size(ds_virtual,1)+1,:) = [dss1(find_cross(i)),dss2(find_cross(i)),dsh(find_cross(i)),dstheta(find_cross(i)),j,find_cross(i)]; %#ok<*AGROW>
                 else
-                    disp(diff_theta1(find_cross(i)))
+%                     disp(diff_theta1(find_cross(i)))
                 end
             end            
             saddleTheta2 = wrapToPi(pi()+saddleTheta1); %angle of the higher saddle line
@@ -133,7 +133,7 @@ for j = 1:nseg
                 if diff_theta2(find_cross(i))<epsi
                     ds_virtual(size(ds_virtual,1)+1,:) = [dss1(find_cross(i)),dss2(find_cross(i)),dsh(find_cross(i)),dstheta(find_cross(i)),j,find_cross(i)]; %#ok<*AGROW>
                 else
-                    disp(diff_theta2(find_cross(i)))
+%                     disp(diff_theta2(find_cross(i)))
                 end
             end 
             
